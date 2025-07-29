@@ -14,12 +14,21 @@ app.use(express.urlencoded({ extended: true }));
 
 // ヘルスチェック用エンドポイント
 app.get('/', (req, res) => {
-  res.json({
+  res.status(200).json({
     message: 'キャラメイクSNS API Server 🎭',
-    status: 'running',
+    status: 'healthy',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
+  });
+});
+
+// Railway用ヘルスチェック
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
   });
 });
 
