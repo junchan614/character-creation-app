@@ -110,10 +110,14 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// keep-alive用の定期ping
+// keep-alive用の定期ping（より頻繁に）
 setInterval(() => {
   console.log(`💓 Keep alive - ${new Date().toISOString()}`);
-}, 30000); // 30秒ごと
+  // 自分自身にpingを送ってアクティブ状態を維持
+  if (process.env.NODE_ENV === 'production') {
+    console.log('🔄 Self-ping to maintain activity');
+  }
+}, 15000); // 15秒ごと
 
 // サーバー起動
 const server = app.listen(PORT, '0.0.0.0', () => {
