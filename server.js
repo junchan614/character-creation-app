@@ -99,12 +99,34 @@ app.use((err, req, res, next) => {
   });
 });
 
+// プロセス終了シグナルハンドリング
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received, graceful shutdown starting');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 SIGINT received, graceful shutdown starting');
+  process.exit(0);
+});
+
+// keep-alive用の定期ping
+setInterval(() => {
+  console.log(`💓 Keep alive - ${new Date().toISOString()}`);
+}, 30000); // 30秒ごと
+
 // サーバー起動
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 キャラメイクSNS Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️ Database: ${process.env.DATABASE_URL ? 'configured' : 'not configured'}`);
   console.log(`🤖 OpenAI: ${process.env.OPENAI_API_KEY ? 'configured' : 'not configured'}`);
+  console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
+});
+
+// サーバーエラーハンドリング
+server.on('error', (error) => {
+  console.error('❌ Server Error:', error);
 });
 
 module.exports = app;
