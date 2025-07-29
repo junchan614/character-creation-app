@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const session = require('express-session');
+const passport = require('./config/passport');
 require('dotenv').config();
 
 const app = express();
@@ -8,9 +10,30 @@ const PORT = process.env.PORT || 3000;
 
 // ミドルウェア設定
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// セッション設定（Google OAuth用）
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24時間
+  }
+}));
+
+// Passport初期化
+app.use(passport.initialize());
+app.use(passport.session());
+
+// 静的ファイル配信（テスト用HTML）
+app.use(express.static('public'));
 
 // ヘルスチェック用エンドポイント
 app.get('/', (req, res) => {
@@ -32,13 +55,18 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ルート設定
+const authRoutes = require('./routes/auth');
+app.use('/auth', authRoutes);
+
 // API ステータス確認
 app.get('/api/status', (req, res) => {
   res.json({
     database: process.env.DATABASE_URL ? 'configured' : 'not configured',
     openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured',
     google_auth: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
-    jwt: process.env.JWT_SECRET ? 'configured' : 'not configured'
+    jwt: process.env.JWT_SECRET ? 'configured' : 'not configured',
+    session_secret: process.env.SESSION_SECRET ? 'configured' : 'not configured'
   });
 });
 

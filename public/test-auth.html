@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>認証システムテスト - キャラメイクSNS</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .google-btn {
+            background-color: #db4437;
+        }
+        .google-btn:hover {
+            background-color: #c23321;
+        }
+        .response {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .token-display {
+            word-break: break-all;
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 キャラメイクSNS 認証システムテスト</h1>
+        <p style="text-align: center; color: #666;">
+            PostgreSQL + GoogleAuth + 従来認証の動作確認ページ
+        </p>
+    </div>
+
+    <!-- ユーザー登録 -->
+    <div class="container">
+        <h2>📝 ユーザー登録（従来認証）</h2>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="reg-username">ユーザー名:</label>
+                <input type="text" id="reg-username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="reg-email">メールアドレス:</label>
+                <input type="email" id="reg-email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="reg-password">パスワード:</label>
+                <input type="password" id="reg-password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="reg-displayName">表示名:</label>
+                <input type="text" id="reg-displayName" name="displayName" required>
+            </div>
+            <button type="submit">登録</button>
+        </form>
+        <div id="registerResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <!-- ログイン -->
+    <div class="container">
+        <h2>🔑 ログイン（従来認証）</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="login-email">メールアドレス:</label>
+                <input type="email" id="login-email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">パスワード:</label>
+                <input type="password" id="login-password" name="password" required>
+            </div>
+            <button type="submit">ログイン</button>
+        </form>
+        <div id="loginResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <!-- Google認証 -->
+    <div class="container">
+        <h2>🌐 Google認証</h2>
+        <p>Googleアカウントでログインします。</p>
+        <button class="google-btn" onclick="googleLogin()">Googleでログイン</button>
+        <div id="googleResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <!-- 認証状態確認 -->
+    <div class="container">
+        <h2>👤 認証状態確認</h2>
+        <p>JWTトークンを使ってユーザー情報を取得します。</p>
+        <button onclick="checkAuth()">認証状態を確認</button>
+        <div id="authResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <!-- トークン表示 -->
+    <div class="container">
+        <h2>🎫 現在のトークン</h2>
+        <div id="currentToken" class="token-display">
+            トークン: なし
+        </div>
+        <button onclick="clearToken()">トークンをクリア</button>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentToken = localStorage.getItem('auth_token');
+        
+        // トークン表示を更新
+        function updateTokenDisplay() {
+            const tokenDiv = document.getElementById('currentToken');
+            if (currentToken) {
+                tokenDiv.innerHTML = `トークン: ${currentToken.substring(0, 50)}...`;
+            } else {
+                tokenDiv.innerHTML = 'トークン: なし';
+            }
+        }
+        
+        // レスポンス表示
+        function showResponse(elementId, data, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `response ${isSuccess ? 'success' : 'error'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        // ユーザー登録
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showResponse('registerResponse', result, response.ok);
+            } catch (error) {
+                showResponse('registerResponse', { error: error.message }, false);
+            }
+        });
+        
+        // ログイン
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.accessToken) {
+                    currentToken = result.accessToken;
+                    localStorage.setItem('auth_token', currentToken);
+                    updateTokenDisplay();
+                }
+                
+                showResponse('loginResponse', result, response.ok);
+            } catch (error) {
+                showResponse('loginResponse', { error: error.message }, false);
+            }
+        });
+        
+        // Google認証
+        function googleLogin() {
+            window.location.href = `${API_BASE}/auth/google`;
+        }
+        
+        // 認証状態確認
+        async function checkAuth() {
+            if (!currentToken) {
+                showResponse('authResponse', { error: 'トークンがありません' }, false);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                
+                const result = await response.json();
+                showResponse('authResponse', result, response.ok);
+                
+                if (!response.ok) {
+                    currentToken = null;
+                    localStorage.removeItem('auth_token');
+                    updateTokenDisplay();
+                }
+            } catch (error) {
+                showResponse('authResponse', { error: error.message }, false);
+            }
+        }
+        
+        // トークンクリア
+        function clearToken() {
+            currentToken = null;
+            localStorage.removeItem('auth_token');
+            updateTokenDisplay();
+        }
+        
+        // URL パラメータからGoogle認証結果を確認
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        if (accessToken) {
+            currentToken = accessToken;
+            localStorage.setItem('auth_token', currentToken);
+            showResponse('googleResponse', { 
+                message: 'Google認証が成功しました！',
+                token: accessToken.substring(0, 50) + '...'
+            }, true);
+        }
+        
+        // 初期化
+        updateTokenDisplay();
+    </script>
+</body>
+</html>
