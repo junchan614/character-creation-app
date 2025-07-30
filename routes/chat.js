@@ -355,10 +355,11 @@ router.post('/select-choice', authenticateToken, async (req, res) => {
       [JSON.stringify(sessionData), userId]
     );
 
-    let message = `「${selectedChoice}」いいですね〜✨`;
+    // AIを使って選択に対する気の利いた反応を生成
+    let message;
     
     if (progress.completed) {
-      message += ' キャラクター設定が完成しました！おめでとうございます🎉';
+      message = await generateCompletionMessage(updatedCharacterData);
       // 完成したキャラクターをcharactersテーブルに保存
       await pool.query(
         `INSERT INTO characters (user_id, name, character_data, created_at)
@@ -366,10 +367,21 @@ router.post('/select-choice', authenticateToken, async (req, res) => {
         [userId, updatedCharacterData.name || '名無し', JSON.stringify(updatedCharacterData)]
       );
     } else if (nextField) {
+      const currentFieldInfo = Object.values(CHARACTER_FIELDS)
+        .flatMap(category => Object.entries(category))
+        .find(([key]) => key === currentField)?.[1];
       const nextFieldInfo = Object.values(CHARACTER_FIELDS)
         .flatMap(category => Object.entries(category))
         .find(([key]) => key === nextField)?.[1];
-      message += ` 次は「${nextFieldInfo?.label}」を決めましょう！`;
+      
+      message = await generateReactionMessage(
+        currentFieldInfo?.label,
+        selectedChoice,
+        nextFieldInfo?.label,
+        updatedCharacterData
+      );
+    } else {
+      message = `「${selectedChoice}」素敵な選択ですね✨`;
     }
 
     res.json({
@@ -463,5 +475,100 @@ router.delete('/session', authenticateToken, async (req, res) => {
     });
   }
 });
+
+/**
+ * 選択に対するAIの気の利いた反応を生成
+ */
+async function generateReactionMessage(currentFieldLabel, selectedChoice, nextFieldLabel, characterData) {
+  try {
+    const contextSummary = Object.entries(characterData)
+      .filter(([_, value]) => value)
+      .map(([key, value]) => {
+        const fieldInfo = Object.values(CHARACTER_FIELDS)
+          .flatMap(category => Object.entries(category))
+          .find(([k]) => k === key)?.[1];
+        return fieldInfo ? `${fieldInfo.label}: ${value}` : null;
+      })
+      .filter(Boolean)
+      .join(', ');
+
+    const prompt = `あなたは友達と一緒にキャラクターを妄想して作る楽しいアシスタントです。
+
+現在のキャラクター設定: ${contextSummary || 'まだ何も決まっていません'}
+
+ユーザーが「${currentFieldLabel}」に「${selectedChoice}」を選択しました。
+
+以下の要求に従って、自然で気の利いた反応をしてください：
+
+1. 選択した内容（${selectedChoice}）に対して、具体的で個性的なコメントをする
+2. そのキャラクターの魅力や面白さを表現する
+3. 既存の設定との組み合わせで生まれる面白さがあれば触れる
+4. ${nextFieldLabel}への自然な話題転換を含める
+5. 友達同士の楽しい会話のような口調で
+6. 絵文字を適度に使って親しみやすく
+
+150文字以内で、ワンパターンにならない自然な反応を生成してください。`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 200,
+      temperature: 0.8
+    });
+
+    return completion.choices[0].message.content.trim();
+
+  } catch (error) {
+    console.error('🔴 Reaction message generation error:', error);
+    // フォールバック：シンプルなメッセージ
+    return `「${selectedChoice}」いいですね✨ 次は「${nextFieldLabel}」を決めましょう！`;
+  }
+}
+
+/**
+ * キャラクター完成時の祝福メッセージを生成
+ */
+async function generateCompletionMessage(characterData) {
+  try {
+    const characterSummary = Object.entries(characterData)
+      .filter(([_, value]) => value)
+      .map(([key, value]) => {
+        const fieldInfo = Object.values(CHARACTER_FIELDS)
+          .flatMap(category => Object.entries(category))
+          .find(([k]) => k === key)?.[1];
+        return fieldInfo ? `${fieldInfo.label}: ${value}` : null;
+      })
+      .filter(Boolean)
+      .join(', ');
+
+    const prompt = `素晴らしいキャラクターが完成しました！
+
+完成したキャラクター：
+${characterSummary}
+
+このキャラクターの魅力的な点や面白い組み合わせを指摘しながら、完成を祝福するメッセージを150文字以内で作成してください。
+
+要求：
+1. キャラクターの個性や魅力を具体的に褒める
+2. 設定の組み合わせから生まれる面白さや意外性を表現
+3. 完成への達成感を共有する
+4. 友達同士の楽しい会話口調で
+5. 適度に絵文字を使って親しみやすく`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 200,
+      temperature: 0.9
+    });
+
+    return completion.choices[0].message.content.trim();
+
+  } catch (error) {
+    console.error('🔴 Completion message generation error:', error);
+    // フォールバック：シンプルな祝福メッセージ
+    return `🎉 キャラクター設定が完成しました！素敵なキャラクターができましたね✨`;
+  }
+}
 
 module.exports = router;
