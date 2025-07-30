@@ -455,7 +455,7 @@
 
         // 認証チェック
         async function checkAuthentication() {
-            authToken = localStorage.getItem('authToken');
+            authToken = localStorage.getItem('auth_token');
             
             if (!authToken) {
                 showAuthError();
@@ -477,7 +477,7 @@
                     showChatMain();
                     return true;
                 } else {
-                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('auth_token');
                     showAuthError();
                     return false;
                 }
