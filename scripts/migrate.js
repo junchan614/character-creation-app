@@ -103,6 +103,31 @@ const createStage2Tables = async (client) => {
   console.log('🎉 Stage 2テーブル作成完了！');
 };
 
+// Stage 3: AIチャット機能用テーブル追加（Week2対応）
+const createStage3Tables = async (client) => {
+  console.log('🏗️ Stage 3: AIチャット機能用テーブルを作成中...');
+  
+  // 5. キャラクター作成セッション管理テーブル
+  console.log('💬 character_creation_sessionsテーブル作成中...');
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS character_creation_sessions (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      session_data JSON NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (user_id)
+    )
+  `);
+  console.log('✅ character_creation_sessionsテーブル作成完了');
+
+  // Stage3用インデックス追加
+  console.log('📊 Stage3インデックスを作成中...');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_char_sessions_updated ON character_creation_sessions(updated_at DESC)');
+  console.log('✅ Stage3インデックス作成完了');
+
+  console.log('🎉 Stage 3テーブル作成完了！');
+};
+
 // 基本インデックス作成
 const createBasicIndexes = async (client) => {
   console.log('📊 基本インデックスを作成中...');
@@ -272,6 +297,26 @@ const runMigration = async () => {
       console.log('✅ Stage2マイグレーションは既に適用済みです');
     }
 
+    // 4. Stage3マイグレーション実行チェック（AIチャット機能用）
+    const stage3Applied = await checkMigrationStatus(client, 'stage3_ai_chat');
+    
+    if (!stage3Applied) {
+      console.log('🆕 Stage3マイグレーション（AIチャット機能用）を実行します...');
+      
+      // Stage3テーブル作成
+      await createStage3Tables(client);
+      
+      // マイグレーション記録
+      await recordMigration(
+        client, 
+        'stage3_ai_chat', 
+        'Stage3: AIチャット機能用テーブル追加（Week2対応）'
+      );
+      
+    } else {
+      console.log('✅ Stage3マイグレーションは既に適用済みです');
+    }
+
     // トランザクションコミット
     await client.query('COMMIT');
     
@@ -312,7 +357,7 @@ const showTableStructure = async () => {
     console.log('📊 テーブル構造確認');
     console.log('─'.repeat(60));
     
-    const tables = ['users', 'characters', 'character_likes', 'user_daily_limits', 'migrations'];
+    const tables = ['users', 'characters', 'character_likes', 'user_daily_limits', 'character_creation_sessions', 'migrations'];
     
     for (const table of tables) {
       console.log(`\n📄 ${table}テーブル:`);

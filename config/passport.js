@@ -2,30 +2,34 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { createOrUpdateGoogleUser } = require('../utils/authUtils');
 
-// Google OAuth Strategy設定
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "https://character-creation-app-production.up.railway.app/auth/google/callback"
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    console.log('🔍 Google OAuth Profile:', {
-      id: profile.id,
-      email: profile.emails[0].value,
-      displayName: profile.displayName
-    });
+// Google OAuth Strategy設定（一時的に無効化：AIチャット機能テスト用）
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "https://character-creation-app-production.up.railway.app/auth/google/callback"
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      console.log('🔍 Google OAuth Profile:', {
+        id: profile.id,
+        email: profile.emails[0].value,
+        displayName: profile.displayName
+      });
 
-    // Google認証ユーザーの作成または更新
-    const user = await createOrUpdateGoogleUser(profile);
-    
-    console.log('✅ Google OAuth Success:', user.email);
-    return done(null, user);
-    
-  } catch (error) {
-    console.error('🔴 Google OAuth Error:', error);
-    return done(error, null);
-  }
-}));
+      // Google認証ユーザーの作成または更新
+      const user = await createOrUpdateGoogleUser(profile);
+      
+      console.log('✅ Google OAuth Success:', user.email);
+      return done(null, user);
+      
+    } catch (error) {
+      console.error('🔴 Google OAuth Error:', error);
+      return done(error, null);
+    }
+  }));
+} else {
+  console.log('⚠️  Google OAuth設定が見つかりません。Google認証は無効化されています。');
+}
 
 // セッション設定（軽量化）
 passport.serializeUser((user, done) => {

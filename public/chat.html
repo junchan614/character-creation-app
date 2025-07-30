@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>キャラメイクチャット - キャラメイクSNS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 800px;
+            height: 95vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            padding: 20px;
+            color: white;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .chat-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.3);
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: white;
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            margin-top: 8px;
+            opacity: 0.9;
+        }
+
+        .api-usage {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.ai {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.ai .message-content {
+            background: white;
+            color: #333;
+            border: 2px solid #e9ecef;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .choices-container {
+            margin-top: 15px;
+        }
+
+        .choice-button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .choice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .choice-button:active {
+            transform: translateY(0);
+        }
+
+        .choice-button:nth-child(1) {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        }
+
+        .choice-button:nth-child(2) {
+            background: linear-gradient(135deg, #5f27cd, #341f97);
+        }
+
+        .choice-button:nth-child(3) {
+            background: linear-gradient(135deg, #00d2d3, #54a0ff);
+        }
+
+        .choice-button:nth-child(4) {
+            background: linear-gradient(135deg, #ff9ff3, #f368e0);
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            background: white;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button, .action-button {
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-button:hover, .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .action-button.secondary {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ccc;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .success-message {
+            background: #26de81;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .current-field {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .completion-celebration {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #26de81, #20bf6b);
+            color: white;
+            border-radius: 15px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .completion-celebration h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        /* レスポンシブデザイン */
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 98vh;
+                border-radius: 0;
+                max-width: 100%;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .api-usage {
+                position: static;
+                display: block;
+                text-align: center;
+                margin-top: 10px;
+            }
+        }
+
+        /* 認証エラー画面 */
+        .auth-error {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .auth-error h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+
+        .auth-error a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- 認証エラー画面 -->
+        <div class="auth-error" id="authError">
+            <h2>🔒 ログインが必要です</h2>
+            <p>AIチャット機能を使用するには、ログインが必要です。</p>
+            <br>
+            <a href="/test-auth.html">ログインページに戻る</a>
+        </div>
+
+        <!-- メインチャット画面 -->
+        <div id="chatMain" style="display: none; height: 100%; display: flex; flex-direction: column;">
+            <!-- ヘッダー -->
+            <div class="chat-header">
+                <div class="api-usage" id="apiUsage">AI: 0/200</div>
+                <div class="chat-title">🎭 キャラメイクチャット</div>
+                <div class="chat-subtitle">友達と妄想するみたいに、キャラクターを作ろう〜✨</div>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0/20項目完了 (0%)</div>
+            </div>
+
+            <!-- メッセージエリア -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai">
+                    <div class="message-content">
+                        こんにちは〜！✨ 一緒に素敵なキャラクターを作りましょう！<br>
+                        まずは「キャラクター作成開始」ボタンを押して始めてください〜😊
+                    </div>
+                </div>
+            </div>
+
+            <!-- 完了セレブレーション -->
+            <div class="completion-celebration" id="completionCelebration">
+                <h3>🎉 キャラクター完成！</h3>
+                <p>素敵なキャラクターができましたね〜✨</p>
+            </div>
+
+            <!-- エラー・成功メッセージ -->
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            <div class="loading" id="loading">AIが考え中...</div>
+
+            <!-- 入力エリア -->
+            <div class="chat-input-area">
+                <div class="current-field" id="currentField" style="display: none;">
+                    <span class="field-label">現在の項目: </span>
+                    <span id="currentFieldText"></span>
+                </div>
+
+                <div class="input-row">
+                    <input type="text" 
+                           class="chat-input" 
+                           id="chatInput" 
+                           placeholder="メッセージを入力..." 
+                           disabled>
+                    <button class="send-button" id="sendButton" disabled>送信</button>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="action-button" id="startButton">キャラクター作成開始</button>
+                    <button class="action-button secondary" id="resetButton" style="display: none;">最初からやり直し</button>
+                    <button class="action-button secondary" id="continueButton" style="display: none;">続きから再開</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let currentUser = null;
+        let authToken = null;
+        let characterData = {};
+        let currentField = null;
+        let sessionData = null;
+
+        // DOM要素
+        const elements = {
+            authError: document.getElementById('authError'),
+            chatMain: document.getElementById('chatMain'),
+            chatMessages: document.getElementById('chatMessages'),
+            chatInput: document.getElementById('chatInput'),
+            sendButton: document.getElementById('sendButton'),
+            startButton: document.getElementById('startButton'),
+            resetButton: document.getElementById('resetButton'),
+            continueButton: document.getElementById('continueButton'),
+            currentField: document.getElementById('currentField'),
+            currentFieldText: document.getElementById('currentFieldText'),
+            progressFill: document.getElementById('progressFill'),
+            progressText: document.getElementById('progressText'),
+            apiUsage: document.getElementById('apiUsage'),
+            errorMessage: document.getElementById('errorMessage'),
+            successMessage: document.getElementById('successMessage'),
+            loading: document.getElementById('loading'),
+            completionCelebration: document.getElementById('completionCelebration')
+        };
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuthentication();
+            setupEventListeners();
+            await loadSession();
+        });
+
+        // 認証チェック
+        async function checkAuthentication() {
+            authToken = localStorage.getItem('authToken');
+            
+            if (!authToken) {
+                showAuthError();
+                return false;
+            }
+
+            try {
+                const response = await fetch('/auth/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.user;
+                    showChatMain();
+                    return true;
+                } else {
+                    localStorage.removeItem('authToken');
+                    showAuthError();
+                    return false;
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showAuthError();
+                return false;
+            }
+        }
+
+        // 認証エラー表示
+        function showAuthError() {
+            elements.authError.style.display = 'block';
+            elements.chatMain.style.display = 'none';
+        }
+
+        // メインチャット表示
+        function showChatMain() {
+            elements.authError.style.display = 'none';
+            elements.chatMain.style.display = 'flex';
+        }
+
+        // イベントリスナー設定
+        function setupEventListeners() {
+            elements.startButton.addEventListener('click', startCharacterCreation);
+            elements.resetButton.addEventListener('click', resetSession);
+            elements.continueButton.addEventListener('click', continueSession);
+            elements.sendButton.addEventListener('click', sendMessage);
+            
+            elements.chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        }
+
+        // セッション読み込み
+        async function loadSession() {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch('/chat/session', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.hasSession) {
+                        sessionData = data.sessionData;
+                        characterData = sessionData.characterData || {};
+                        currentField = sessionData.currentField;
+                        
+                        updateProgress(data.progress);
+                        showContinueOption();
+                        
+                        // 進行中の項目を表示
+                        if (currentField && !data.progress.completed) {
+                            showCurrentField(currentField);
+                        } else if (data.progress.completed) {
+                            showCompletion();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Session load error:', error);
+            }
+        }
+
+        // キャラクター作成開始
+        async function startCharacterCreation() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/chat/start-character-creation', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    sessionData = data.sessionData;
+                    characterData = sessionData.characterData || {};
+                    currentField = sessionData.currentField;
+                    
+                    updateApiUsage(data.apiUsage);
+                    updateProgress(data.progress);
+                    
+                    addAIMessage(data.message);
+                    showCurrentField(currentField);
+                    enableChat();
+                    
+                    // 最初の選択肢を取得
+                    await getChoices();
+                    
+                } else {
+                    showError(data.message || 'キャラクター作成開始でエラーが発生しました');
+                }
+            } catch (error) {
+                console.error('Start creation error:', error);
+                showError('通信エラーが発生しました');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 選択肢取得
+        async function getChoices() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/chat/get-choices', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentField: currentField,
+                        characterData: characterData
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateApiUsage(data.apiUsage);
+                    addAIMessage(data.comment || 'いくつか選択肢を用意しました〜！', data.choices);
+                } else {
+                    showError(data.message || '選択肢取得でエラーが発生しました');
+                }
+            } catch (error) {
+                console.error('Get choices error:', error);
+                showError('通信エラーが発生しました');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 選択肢選択
+        async function selectChoice(choice) {
+            addUserMessage(choice);
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/chat/select-choice', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentField: currentField,
+                        selectedChoice: choice,
+                        characterData: characterData
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    characterData = data.characterData;
+                    currentField = data.nextField;
+                    
+                    updateProgress(data.progress);
+                    addAIMessage(data.message);
+                    
+                    if (data.completed) {
+                        showCompletion();
+                        disableChat();
+                    } else if (currentField) {
+                        showCurrentField(currentField);
+                        // 次の選択肢を取得
+                        await getChoices();
+                    }
+                    
+                } else {
+                    showError(data.message || '選択処理でエラーが発生しました');
+                }
+            } catch (error) {
+                console.error('Select choice error:', error);
+                showError('通信エラーが発生しました');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // メッセージ送信（将来的に自由入力に対応）
+        async function sendMessage() {
+            const message = elements.chatInput.value.trim();
+            if (!message) return;
+            
+            elements.chatInput.value = '';
+            addUserMessage(message);
+            
+            // 現在は選択肢ベースなので、自由入力は後で実装
+            addAIMessage('現在は選択肢から選んでください〜😊');
+        }
+
+        // セッションリセット
+        async function resetSession() {
+            if (!confirm('本当に最初からやり直しますか？これまでの進捗が失われます。')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/chat/session', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    showError('リセットでエラーが発生しました');
+                }
+            } catch (error) {
+                console.error('Reset error:', error);
+                showError('通信エラーが発生しました');
+            }
+        }
+
+        // セッション続行
+        function continueSession() {
+            if (sessionData && currentField && !sessionData.completed) {
+                enableChat();
+                showCurrentField(currentField);
+                getChoices();
+            }
+        }
+
+        // UIヘルパー関数
+        function addUserMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            messageDiv.innerHTML = `<div class="message-content">${escapeHtml(message)}</div>`;
+            elements.chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addAIMessage(message, choices = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ai';
+            
+            let content = `<div class="message-content">${escapeHtml(message)}`;
+            
+            if (choices && choices.length > 0) {
+                content += '<div class="choices-container">';
+                choices.forEach((choice, index) => {
+                    content += `<button class="choice-button" onclick="selectChoice('${escapeHtml(choice)}')">${escapeHtml(choice)}</button>`;
+                });
+                content += '</div>';
+            }
+            
+            content += '</div>';
+            messageDiv.innerHTML = content;
+            elements.chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function showCurrentField(fieldName) {
+            elements.currentField.style.display = 'block';
+            elements.currentFieldText.textContent = getFieldLabel(fieldName);
+        }
+
+        function hideCurrentField() {
+            elements.currentField.style.display = 'none';
+        }
+
+        function updateProgress(progress) {
+            const percentage = progress.progress || 0;
+            elements.progressFill.style.width = `${percentage}%`;
+            elements.progressText.textContent = `${progress.completedCount || 0}/${progress.totalCount || 20}項目完了 (${percentage}%)`;
+        }
+
+        function updateApiUsage(usage) {
+            if (usage) {
+                elements.apiUsage.textContent = `AI: ${usage.currentUsage}/${usage.dailyLimit}`;
+            }
+        }
+
+        function enableChat() {
+            elements.chatInput.disabled = false;
+            elements.sendButton.disabled = false;
+            elements.startButton.style.display = 'none';
+            elements.resetButton.style.display = 'inline-block';
+        }
+
+        function disableChat() {
+            elements.chatInput.disabled = true;
+            elements.sendButton.disabled = true;
+            hideCurrentField();
+        }
+
+        function showContinueOption() {
+            elements.continueButton.style.display = 'inline-block';
+            elements.resetButton.style.display = 'inline-block';
+        }
+
+        function showCompletion() {
+            elements.completionCelebration.style.display = 'block';
+            hideCurrentField();
+            disableChat();
+            scrollToBottom();
+        }
+
+        function showLoading(show) {
+            elements.loading.style.display = show ? 'block' : 'none';
+            if (show) scrollToBottom();
+        }
+
+        function showError(message) {
+            elements.errorMessage.textContent = message;
+            elements.errorMessage.style.display = 'block';
+            setTimeout(() => {
+                elements.errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            elements.successMessage.textContent = message;
+            elements.successMessage.style.display = 'block';
+            setTimeout(() => {
+                elements.successMessage.style.display = 'none';
+            }, 3000);
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+            }, 100);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getFieldLabel(fieldName) {
+            const labels = {
+                name: '名前',
+                age: '年齢',
+                gender: '性別',
+                height: '身長',
+                birthday: '誕生日',
+                hairColor: '髪色',
+                eyeColor: '瞳色',
+                bodyType: '体型',
+                features: '特徴',
+                clothing: '服装',
+                basicPersonality: '基本性格',
+                trait1: '性格特徴1',
+                trait2: '性格特徴2',
+                speechStyle: '口調',
+                hobbies: '趣味',
+                occupation: '職業',
+                birthplace: '出身地',
+                family: '家族構成',
+                skills: '特技',
+                favorites: '好きなもの'
+            };
+            return labels[fieldName] || fieldName;
+        }
+    </script>
+</body>
+</html>

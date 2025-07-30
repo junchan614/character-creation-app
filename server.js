@@ -69,7 +69,9 @@ app.get('/health', (req, res) => {
 
 // ルート設定
 const authRoutes = require('./routes/auth');
+const chatRoutes = require('./routes/chat');
 app.use('/auth', authRoutes);
+app.use('/chat', chatRoutes);
 
 // API ステータス確認
 app.get('/api/status', (req, res) => {
