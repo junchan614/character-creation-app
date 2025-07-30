@@ -285,14 +285,14 @@ router.get('/google/callback',
       console.log(`🎉 Google OAuth Success: ${req.user.email}`);
       
       // フロントエンドにリダイレクト（トークンをクエリパラメータで渡す）
-      const redirectUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = process.env.FRONTEND_URL || `https://${req.get('host')}`;
       const tokenParams = new URLSearchParams({
         access_token: tokenData.accessToken,
         refresh_token: tokenData.refreshToken,
         user: JSON.stringify(tokenData.user)
       });
       
-      res.redirect(`${redirectUrl}/auth/callback?${tokenParams.toString()}`);
+      res.redirect(`${redirectUrl}/test-auth.html?${tokenParams.toString()}`);
       
     } catch (error) {
       console.error('🔴 Google OAuth callback error:', error);
