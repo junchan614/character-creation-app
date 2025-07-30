@@ -160,6 +160,10 @@
             トークン: なし
         </div>
         <button onclick="clearToken()">トークンをクリア</button>
+        <div id="chatLink" style="display: none; margin-top: 15px;">
+            <p style="color: #28a745; font-weight: bold;">🎉 認証成功！AIチャット機能を使用できます</p>
+            <button onclick="goToChat()" style="background-color: #28a745;">AIチャットでキャラ作成</button>
+        </div>
     </div>
 
     <script>
@@ -169,11 +173,20 @@
         // トークン表示を更新
         function updateTokenDisplay() {
             const tokenDiv = document.getElementById('currentToken');
+            const chatLinkDiv = document.getElementById('chatLink');
+            
             if (currentToken) {
                 tokenDiv.innerHTML = `トークン: ${currentToken.substring(0, 50)}...`;
+                chatLinkDiv.style.display = 'block';
             } else {
                 tokenDiv.innerHTML = 'トークン: なし';
+                chatLinkDiv.style.display = 'none';
             }
+        }
+        
+        // AIチャットページに移動
+        function goToChat() {
+            window.location.href = '/chat.html';
         }
         
         // レスポンス表示
@@ -223,9 +236,17 @@
                     currentToken = result.accessToken;
                     localStorage.setItem('auth_token', currentToken);
                     updateTokenDisplay();
+                    
+                    // ログイン成功メッセージをよりわかりやすく表示
+                    showResponse('loginResponse', {
+                        ...result,
+                        message: '✅ ログイン成功！トークンが保存されました。',
+                        tokenStored: 'localStorage にトークンが保存されました'
+                    }, response.ok);
+                } else {
+                    showResponse('loginResponse', result, response.ok);
                 }
                 
-                showResponse('loginResponse', result, response.ok);
             } catch (error) {
                 showResponse('loginResponse', { error: error.message }, false);
             }
@@ -266,18 +287,43 @@
             currentToken = null;
             localStorage.removeItem('auth_token');
             updateTokenDisplay();
+            
+            // レスポンス表示もクリア
+            document.getElementById('loginResponse').style.display = 'none';
+            document.getElementById('googleResponse').style.display = 'none';
+            document.getElementById('authResponse').style.display = 'none';
         }
         
         // URL パラメータからGoogle認証結果を確認
         const urlParams = new URLSearchParams(window.location.search);
         const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        const userInfo = urlParams.get('user');
+        
         if (accessToken) {
             currentToken = accessToken;
             localStorage.setItem('auth_token', currentToken);
-            showResponse('googleResponse', { 
-                message: 'Google認証が成功しました！',
-                token: accessToken.substring(0, 50) + '...'
-            }, true);
+            updateTokenDisplay();
+            
+            try {
+                const user = userInfo ? JSON.parse(userInfo) : null;
+                showResponse('googleResponse', { 
+                    message: '✅ Google認証成功！トークンが保存されました。',
+                    tokenStored: 'localStorage にトークンが保存されました',
+                    user: user,
+                    accessToken: accessToken.substring(0, 50) + '...',
+                    refreshToken: refreshToken ? refreshToken.substring(0, 50) + '...' : null
+                }, true);
+            } catch (e) {
+                showResponse('googleResponse', { 
+                    message: '✅ Google認証成功！トークンが保存されました。',
+                    tokenStored: 'localStorage にトークンが保存されました',
+                    accessToken: accessToken.substring(0, 50) + '...'
+                }, true);
+            }
+            
+            // URLのクエリパラメータをクリア（セキュリティのため）
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
         
         // 初期化
