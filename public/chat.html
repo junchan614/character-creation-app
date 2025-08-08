@@ -245,6 +245,27 @@
             border-left: 3px solid #667eea;
         }
 
+        .edit-previous-container {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .edit-previous-button {
+            font-size: 11px;
+            background: rgba(255, 152, 0, 0.1);
+            color: #ff9800;
+            border: 1px solid #ff9800;
+            padding: 5px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .edit-previous-button:hover {
+            background: rgba(255, 152, 0, 0.2);
+            transform: translateY(-1px);
+        }
+
         .chat-input-area {
             padding: 20px;
             background: white;
@@ -645,8 +666,7 @@
         // 初期メッセージ表示
         function showInitialMessage() {
             if (elements.chatMessages.children.length === 0) {
-                const welcomeMessage = 'こんにちは〜！✨ 一緒に素敵なキャラクターを作りましょう！<br>' +
-                                     'まずは「キャラクター作成開始」ボタンを押して始めてください〜😊';
+                const welcomeMessage = 'こんにちは〜！✨ 一緒に素敵なキャラクターを作りましょう！\nまずは「キャラクター作成開始」ボタンを押して始めてください〜😊';
                 const welcomeEmotion = CharacterEmotions.getContextualEmotion('welcome');
                 addAIMessage(welcomeMessage, null, welcomeEmotion);
             }
@@ -815,6 +835,11 @@
                     updateApiUsage(data.apiUsage);
                     const choicesEmotion = CharacterEmotions.getContextualEmotion('choices');
                     addAIMessage(data.comment || 'いくつか選択肢を用意しました〜！', data.choices, choicesEmotion);
+                    
+                    // 選択肢履歴を保存（修正機能のため）
+                    if (data.choices && data.choices.length > 0) {
+                        savePreviousChoice(currentField, data.choices);
+                    }
                 } else {
                     addAIMessage('うーん、選択肢を用意できませんでした😰', null, 'confused');
                     showError(data.message || '選択肢取得でエラーが発生しました');
@@ -868,7 +893,7 @@
                         emotion = CharacterEmotions.getContextualEmotion('reaction_positive'); // 基本的にポジティブ
                     }
                     
-                    addAIMessage(data.message, null, emotion);
+                    addAIMessage(data.message, null, emotion, true); // 修正ボタンを表示
                     
                     if (data.completed) {
                         showCompletion();
@@ -901,6 +926,34 @@
             
             // 自由入力を選択肢として処理
             await selectChoice(message);
+        }
+
+        // 前の選択を修正する機能
+        let previousChoices = []; // 過去の選択肢を記録
+        let previousField = null; // 前のフィールド
+
+        async function editPreviousChoice() {
+            if (!previousChoices.length || !previousField) {
+                const encourageEmotion = CharacterEmotions.getContextualEmotion('encouragement');
+                addAIMessage('まだ修正できる項目がないようです😅 もう少し進めてから試してみてください〜', null, encourageEmotion);
+                return;
+            }
+
+            // 前の選択肢を再表示
+            const editEmotion = CharacterEmotions.getContextualEmotion('thinking');
+            addAIMessage(`「${getFieldLabel(previousField)}」を修正しますか？ 新しい選択肢を用意しました〜✨`, previousChoices, editEmotion);
+            
+            // 現在のフィールドを前のフィールドに戻す
+            currentField = previousField;
+            showCurrentField(currentField);
+        }
+
+        // 選択肢選択時に履歴を保存
+        function savePreviousChoice(field, choices) {
+            if (field && choices && choices.length > 0) {
+                previousField = field;
+                previousChoices = [...choices]; // 配列をコピー
+            }
         }
 
         // セッションリセット
@@ -947,7 +1000,7 @@
             scrollToBottom();
         }
 
-        function addAIMessage(message, choices = null, emotion = 'normal') {
+        function addAIMessage(message, choices = null, emotion = 'normal', showEditButton = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message ai with-avatar';
             
@@ -973,7 +1026,7 @@
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
             
-            let content = escapeHtml(message);
+            let content = escapeHtml(message).replace(/\n/g, '<br>');
             
             if (choices && choices.length > 0) {
                 content += '<div class="choices-container">';
@@ -982,6 +1035,11 @@
                 });
                 content += '<div class="choices-help-text">💬 上の選択肢から選ぶか、下のテキストボックスに自由に入力できます。</div>';
                 content += '</div>';
+            }
+            
+            // 修正ボタンを表示（選択肢がない場合で、明示的に要求された場合）
+            if (showEditButton && (!choices || choices.length === 0) && previousChoices.length > 0) {
+                content += '<div class="edit-previous-container" style="margin-top: 10px;"><button class="edit-previous-button" onclick="editPreviousChoice()">⚙️ 前の選択を修正</button></div>';
             }
             
             messageContent.innerHTML = content;
