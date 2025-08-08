@@ -118,14 +118,14 @@
 
         /* キャラつくちゃんアバター */
         .ai-avatar {
-            width: 40px;
-            height: 40px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            margin-right: 12px;
+            margin-right: 15px;
             flex-shrink: 0;
             object-fit: cover;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            border: 2px solid #e9ecef;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            border: 3px solid #e9ecef;
             transition: transform 0.3s ease;
         }
 
@@ -213,6 +213,17 @@
 
         .choice-button:nth-child(4) {
             background: linear-gradient(135deg, #ff9ff3, #f368e0);
+        }
+
+        .choices-help-text {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 15px;
+            padding: 8px 12px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            border-left: 3px solid #667eea;
         }
 
         .chat-input-area {
@@ -353,9 +364,9 @@
             }
 
             .ai-avatar {
-                width: 35px;
-                height: 35px;
-                margin-right: 10px;
+                width: 70px;
+                height: 70px;
+                margin-right: 12px;
             }
 
             .ai-message-wrapper {
@@ -490,18 +501,55 @@
             getContextualEmotion(context, data = {}) {
                 switch (context) {
                     case 'start': return 'excited';
-                    case 'choices': return 'thinking';
-                    case 'progress_25': return 'normal';
-                    case 'progress_50': return 'happy';
-                    case 'progress_75': return 'cheer';
+                    case 'choices': 
+                        // 選択肢提示時にランダム性を追加
+                        const choiceEmotions = ['thinking', 'wink', 'shy', 'mischief'];
+                        return choiceEmotions[Math.floor(Math.random() * choiceEmotions.length)];
+                    case 'progress_25': return Math.random() > 0.5 ? 'normal' : 'relieved';
+                    case 'progress_50': return Math.random() > 0.5 ? 'happy' : 'excited';
+                    case 'progress_75': return Math.random() > 0.5 ? 'cheer' : 'moved';
                     case 'completed': return 'excited';
                     case 'error': return data.severe ? 'angry' : 'worried';
+                    case 'confusion': return 'confused';
+                    case 'sleepy': return 'sleepy';
                     case 'reset': return 'relieved';
                     case 'gap_moe': return 'mischief'; // ギャップ萌え選択時
                     case 'surprise': return 'surprised';
                     case 'moved': return 'moved';
-                    default: return 'normal';
+                    case 'reaction_positive': 
+                        // ポジティブ反応のバリエーション
+                        const positiveEmotions = ['happy', 'excited', 'moved', 'wink', 'cheer'];
+                        return positiveEmotions[Math.floor(Math.random() * positiveEmotions.length)];
+                    case 'reaction_interesting':
+                        // 面白い反応のバリエーション
+                        const interestingEmotions = ['surprised', 'excited', 'mischief', 'wink'];
+                        return interestingEmotions[Math.floor(Math.random() * interestingEmotions.length)];
+                    case 'user_creative':
+                        // クリエイティブな回答時
+                        const creativeEmotions = ['excited', 'surprised', 'moved', 'mischief'];
+                        return creativeEmotions[Math.floor(Math.random() * creativeEmotions.length)];
+                    case 'encouragement':
+                        // 励まし時
+                        const encourageEmotions = ['cheer', 'happy', 'wink', 'relieved'];
+                        return encourageEmotions[Math.floor(Math.random() * encourageEmotions.length)];
+                    case 'request':
+                        // お願い・依頼時
+                        const requestEmotions = ['shy', 'wink', 'normal', 'thinking'];
+                        return requestEmotions[Math.floor(Math.random() * requestEmotions.length)];
+                    case 'welcome':
+                        // 初回歓迎時
+                        const welcomeEmotions = ['happy', 'excited', 'cheer', 'wink'];
+                        return welcomeEmotions[Math.floor(Math.random() * welcomeEmotions.length)];
+                    default: 
+                        // デフォルトでも時々表情を変える
+                        return Math.random() > 0.6 ? this.getRandomEmotion() : 'normal';
                 }
+            },
+            
+            // ランダム表情選択（時々使用）
+            getRandomEmotion() {
+                const randomEmotions = ['normal', 'happy', 'shy', 'wink', 'relieved', 'thinking', 'cheer', 'surprised', 'moved'];
+                return randomEmotions[Math.floor(Math.random() * randomEmotions.length)];
             },
             
             // 画像パスを取得
@@ -571,7 +619,8 @@
             if (elements.chatMessages.children.length === 0) {
                 const welcomeMessage = 'こんにちは〜！✨ 一緒に素敵なキャラクターを作りましょう！<br>' +
                                      'まずは「キャラクター作成開始」ボタンを押して始めてください〜😊';
-                addAIMessage(welcomeMessage, null, 'happy');
+                const welcomeEmotion = CharacterEmotions.getContextualEmotion('welcome');
+                addAIMessage(welcomeMessage, null, welcomeEmotion);
             }
         }
 
@@ -736,7 +785,8 @@
                 
                 if (response.ok) {
                     updateApiUsage(data.apiUsage);
-                    addAIMessage(data.comment || 'いくつか選択肢を用意しました〜！', data.choices, 'thinking'); // 選択肢提示時は考え中
+                    const choicesEmotion = CharacterEmotions.getContextualEmotion('choices');
+                    addAIMessage(data.comment || 'いくつか選択肢を用意しました〜！', data.choices, choicesEmotion);
                 } else {
                     addAIMessage('うーん、選択肢を用意できませんでした😰', null, 'confused');
                     showError(data.message || '選択肢取得でエラーが発生しました');
@@ -776,16 +826,18 @@
                     
                     updateProgress(data.progress);
                     
-                    // 進行状況に応じて表情を変更
+                    // 進行状況に応じて表情を変更（ランダム性追加）
                     let emotion = 'happy';
                     if (data.completed) {
-                        emotion = 'excited'; // 完成時は大喜び
+                        emotion = CharacterEmotions.getContextualEmotion('completed'); // 完成時は大喜び
                     } else if (data.progress && data.progress.progress > 75) {
-                        emotion = 'cheer'; // 75%以上で応援
+                        emotion = CharacterEmotions.getContextualEmotion('progress_75'); // 75%以上で応援
                     } else if (data.progress && data.progress.progress > 50) {
-                        emotion = 'happy'; // 50%以上で嬉しい
+                        emotion = CharacterEmotions.getContextualEmotion('progress_50'); // 50%以上で嬉しい
+                    } else if (data.progress && data.progress.progress > 25) {
+                        emotion = CharacterEmotions.getContextualEmotion('progress_25'); // 25%以上
                     } else {
-                        emotion = 'normal'; // それ以下は通常
+                        emotion = CharacterEmotions.getContextualEmotion('reaction_positive'); // 基本的にポジティブ
                     }
                     
                     addAIMessage(data.message, null, emotion);
@@ -820,7 +872,8 @@
             addUserMessage(message);
             
             // 現在は選択肢ベースなので、自由入力は後で実装
-            addAIMessage('現在は選択肢から選んでください〜😊', null, 'shy'); // お願い時は恥ずかしそう
+            const requestEmotion = CharacterEmotions.getContextualEmotion('request');
+            addAIMessage('現在は選択肢から選んでください〜😊', null, requestEmotion);
         }
 
         // セッションリセット
@@ -900,6 +953,7 @@
                 choices.forEach((choice, index) => {
                     content += `<button class="choice-button" onclick="selectChoice('${escapeHtml(choice)}')">${escapeHtml(choice)}</button>`;
                 });
+                content += '<div class="choices-help-text">💬 上の選択肢から選ぶか、下のテキストボックスに自由に入力できます。</div>';
                 content += '</div>';
             }
             
