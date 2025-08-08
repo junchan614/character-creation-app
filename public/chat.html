@@ -116,6 +116,29 @@
             justify-content: flex-start;
         }
 
+        /* キャラつくちゃんアバター */
+        .ai-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            border: 2px solid #e9ecef;
+            transition: transform 0.3s ease;
+        }
+
+        .ai-avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .ai-message-wrapper {
+            display: flex;
+            align-items: flex-start;
+            max-width: 70%;
+        }
+
         .message-content {
             max-width: 70%;
             padding: 15px 20px;
@@ -136,6 +159,15 @@
             border: 2px solid #e9ecef;
             border-bottom-left-radius: 5px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            flex: 1;
+        }
+
+        .message.ai.with-avatar {
+            align-items: flex-start;
+        }
+
+        .message.ai.with-avatar .message-content {
+            margin-top: 0;
         }
 
         .choices-container {
@@ -320,6 +352,16 @@
                 max-width: 85%;
             }
 
+            .ai-avatar {
+                width: 35px;
+                height: 35px;
+                margin-right: 10px;
+            }
+
+            .ai-message-wrapper {
+                max-width: 90%;
+            }
+
             .api-usage {
                 position: static;
                 display: block;
@@ -373,12 +415,7 @@
 
             <!-- メッセージエリア -->
             <div class="chat-messages" id="chatMessages">
-                <div class="message ai">
-                    <div class="message-content">
-                        こんにちは〜！✨ 一緒に素敵なキャラクターを作りましょう！<br>
-                        まずは「キャラクター作成開始」ボタンを押して始めてください〜😊
-                    </div>
-                </div>
+                <!-- 初期メッセージはJSで追加 -->
             </div>
 
             <!-- 完了セレブレーション -->
@@ -424,6 +461,78 @@
         let characterData = {};
         let currentField = null;
         let sessionData = null;
+        
+        // キャラつくちゃん表情管理
+        const CharacterEmotions = {
+            current: 'normal',
+            preloadedImages: {},
+            
+            // 15パターン完全表情システム
+            emotions: {
+                normal: 'charatuku-normal.jpg',       // デフォルト・通常時
+                happy: 'charatuku-happy.jpg',         // 一般的な喜び・成功時
+                thinking: 'charatuku-thinking.jpg',   // 考え中・選択肢提示時
+                cheer: 'charatuku-cheer.jpg',         // 応援・励まし
+                surprised: 'charatuku-surprised.jpg', // 驚き・意外な選択時
+                excited: 'charatuku-excited.jpg',     // 大興奮・完成時・開始時
+                wink: 'charatuku-wink.jpg',           // いたずら・ウィンク
+                shy: 'charatuku-shy.jpg',             // 恥ずかしい・お願い時
+                confused: 'charatuku-confused.jpg',   // 困惑・エラー時
+                relieved: 'charatuku-relieved.jpg',   // 安心・リセット後
+                moved: 'charatuku-moved.jpg',         // 感動・完成間近
+                sleepy: 'charatuku-sleepy.jpg',       // 眠い・長時間使用
+                mischief: 'charatuku-mischief.jpg',   // いたずらっ子・ギャップ萌え時
+                worried: 'charatuku-worried.jpg',     // 心配・エラー警告
+                angry: 'charatuku-angry.jpg'          // 怒り・システムエラー
+            },
+            
+            // コンテキスト別表情選択ヘルパー
+            getContextualEmotion(context, data = {}) {
+                switch (context) {
+                    case 'start': return 'excited';
+                    case 'choices': return 'thinking';
+                    case 'progress_25': return 'normal';
+                    case 'progress_50': return 'happy';
+                    case 'progress_75': return 'cheer';
+                    case 'completed': return 'excited';
+                    case 'error': return data.severe ? 'angry' : 'worried';
+                    case 'reset': return 'relieved';
+                    case 'gap_moe': return 'mischief'; // ギャップ萌え選択時
+                    case 'surprise': return 'surprised';
+                    case 'moved': return 'moved';
+                    default: return 'normal';
+                }
+            },
+            
+            // 画像パスを取得
+            getImagePath(emotion = 'normal') {
+                const filename = this.emotions[emotion] || this.emotions.normal;
+                return `/images/character-emotions/${filename}`;
+            },
+            
+            // 表情を設定
+            setEmotion(emotion) {
+                this.current = emotion;
+            },
+            
+            // 画像プリロード
+            async preloadImages() {
+                const promises = Object.entries(this.emotions).map(([emotion, filename]) => {
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            this.preloadedImages[emotion] = img;
+                            resolve();
+                        };
+                        img.onerror = () => resolve(); // エラーでも続行
+                        img.src = `/images/character-emotions/${filename}`;
+                    });
+                });
+                
+                await Promise.all(promises);
+                console.log('キャラつくちゃん画像プリロード完了:', Object.keys(this.preloadedImages).length + '個');
+            }
+        };
 
         // DOM要素
         const elements = {
@@ -450,8 +559,21 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuthentication();
             setupEventListeners();
+            await CharacterEmotions.preloadImages(); // 画像プリロード
             await loadSession();
+            
+            // 初期メッセージを表示
+            showInitialMessage();
         });
+        
+        // 初期メッセージ表示
+        function showInitialMessage() {
+            if (elements.chatMessages.children.length === 0) {
+                const welcomeMessage = 'こんにちは〜！✨ 一緒に素敵なキャラクターを作りましょう！<br>' +
+                                     'まずは「キャラクター作成開始」ボタンを押して始めてください〜😊';
+                addAIMessage(welcomeMessage, null, 'happy');
+            }
+        }
 
         // 認証チェック
         async function checkAuthentication() {
@@ -574,7 +696,7 @@
                     updateApiUsage(data.apiUsage);
                     updateProgress(data.progress);
                     
-                    addAIMessage(data.message);
+                    addAIMessage(data.message, null, 'excited'); // 開始時はワクワク表情
                     showCurrentField(currentField);
                     enableChat();
                     
@@ -582,6 +704,7 @@
                     await getChoices();
                     
                 } else {
+                    addAIMessage('あらら・・・何か問題が起きてしまいました😥', null, 'worried');
                     showError(data.message || 'キャラクター作成開始でエラーが発生しました');
                 }
             } catch (error) {
@@ -613,8 +736,9 @@
                 
                 if (response.ok) {
                     updateApiUsage(data.apiUsage);
-                    addAIMessage(data.comment || 'いくつか選択肢を用意しました〜！', data.choices);
+                    addAIMessage(data.comment || 'いくつか選択肢を用意しました〜！', data.choices, 'thinking'); // 選択肢提示時は考え中
                 } else {
+                    addAIMessage('うーん、選択肢を用意できませんでした😰', null, 'confused');
                     showError(data.message || '選択肢取得でエラーが発生しました');
                 }
             } catch (error) {
@@ -651,7 +775,20 @@
                     currentField = data.nextField;
                     
                     updateProgress(data.progress);
-                    addAIMessage(data.message);
+                    
+                    // 進行状況に応じて表情を変更
+                    let emotion = 'happy';
+                    if (data.completed) {
+                        emotion = 'excited'; // 完成時は大喜び
+                    } else if (data.progress && data.progress.progress > 75) {
+                        emotion = 'cheer'; // 75%以上で応援
+                    } else if (data.progress && data.progress.progress > 50) {
+                        emotion = 'happy'; // 50%以上で嬉しい
+                    } else {
+                        emotion = 'normal'; // それ以下は通常
+                    }
+                    
+                    addAIMessage(data.message, null, emotion);
                     
                     if (data.completed) {
                         showCompletion();
@@ -663,6 +800,7 @@
                     }
                     
                 } else {
+                    addAIMessage('あぁ・・・選択の処理が上手くいきませんでした😢', null, 'worried');
                     showError(data.message || '選択処理でエラーが発生しました');
                 }
             } catch (error) {
@@ -682,7 +820,7 @@
             addUserMessage(message);
             
             // 現在は選択肢ベースなので、自由入力は後で実装
-            addAIMessage('現在は選択肢から選んでください〜😊');
+            addAIMessage('現在は選択肢から選んでください〜😊', null, 'shy'); // お願い時は恥ずかしそう
         }
 
         // セッションリセット
@@ -729,11 +867,33 @@
             scrollToBottom();
         }
 
-        function addAIMessage(message, choices = null) {
+        function addAIMessage(message, choices = null, emotion = 'normal') {
             const messageDiv = document.createElement('div');
-            messageDiv.className = 'message ai';
+            messageDiv.className = 'message ai with-avatar';
             
-            let content = `<div class="message-content">${escapeHtml(message)}`;
+            // アバターと表情を設定
+            CharacterEmotions.setEmotion(emotion);
+            const avatarPath = CharacterEmotions.getImagePath(emotion);
+            
+            // メッセージ構造を作成
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'ai-message-wrapper';
+            
+            // アバター画像
+            const avatar = document.createElement('img');
+            avatar.className = 'ai-avatar';
+            avatar.src = avatarPath;
+            avatar.alt = 'キャラつくちゃん';
+            avatar.onerror = () => {
+                // フォールバック: デフォルト画像
+                avatar.src = CharacterEmotions.getImagePath('normal');
+            };
+            
+            // メッセージコンテンツ
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            let content = escapeHtml(message);
             
             if (choices && choices.length > 0) {
                 content += '<div class="choices-container">';
@@ -743,8 +903,13 @@
                 content += '</div>';
             }
             
-            content += '</div>';
-            messageDiv.innerHTML = content;
+            messageContent.innerHTML = content;
+            
+            // 要素を組み立て
+            messageWrapper.appendChild(avatar);
+            messageWrapper.appendChild(messageContent);
+            messageDiv.appendChild(messageWrapper);
+            
             elements.chatMessages.appendChild(messageDiv);
             scrollToBottom();
         }
@@ -792,6 +957,12 @@
             elements.completionCelebration.style.display = 'block';
             hideCurrentField();
             disableChat();
+            
+            // 完成メッセージをキャラつくちゃんで追加
+            setTimeout(() => {
+                addAIMessage('お疲れさまでした！✨ 素晴らしいキャラクターが完成しましたね！今度は画像を作ってみましょうか？', null, 'excited');
+            }, 1000);
+            
             scrollToBottom();
         }
 
