@@ -266,6 +266,18 @@
             transform: translateY(-1px);
         }
 
+        .choice-button.disabled {
+            background: #e0e0e0 !important;
+            color: #999 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+
+        .choice-button.disabled:hover {
+            transform: none !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+
         .chat-input-area {
             padding: 20px;
             background: white;
@@ -800,6 +812,12 @@
                     // 最初の選択肢を取得
                     await getChoices();
                     
+                    // 名前の修正を可能にするため、初期状態を保存
+                    if (currentField === 'name') {
+                        previousField = null; // 初期状態なので前の項目はない
+                        previousChoices = ['名前を最初から考え直す']; // ダミー選択肢
+                    }
+                    
                 } else {
                     addAIMessage('あらら・・・何か問題が起きてしまいました😥', null, 'worried');
                     showError(data.message || 'キャラクター作成開始でエラーが発生しました');
@@ -933,9 +951,17 @@
         let previousField = null; // 前のフィールド
 
         async function editPreviousChoice() {
-            if (!previousChoices.length || !previousField) {
+            if (!previousChoices.length) {
                 const encourageEmotion = CharacterEmotions.getContextualEmotion('encouragement');
                 addAIMessage('まだ修正できる項目がないようです😅 もう少し進めてから試してみてください〜', null, encourageEmotion);
+                return;
+            }
+
+            // 名前（最初の項目）の修正の場合
+            if (!previousField || currentField === 'name') {
+                const editEmotion = CharacterEmotions.getContextualEmotion('thinking');
+                addAIMessage('名前を最初から考え直しますか？ 新しい名前を入力してください〜✨', null, editEmotion);
+                // 名前の場合は選択肢を表示せず、自由入力を促す
                 return;
             }
 
@@ -954,6 +980,46 @@
                 previousField = field;
                 previousChoices = [...choices]; // 配列をコピー
             }
+        }
+
+        // フィールド名から日本語ラベルを取得
+        function getFieldLabel(field) {
+            const fieldLabels = {
+                'name': '名前',
+                'gender': '性別',
+                'age': '年齢',
+                'personality': '性格',
+                'appearance': '外見',
+                'occupation': '職業',
+                'hobby': '趣味',
+                'specialty': '特技',
+                'background': '出身・背景',
+                'goal': '目標・夢',
+                'fear': '苦手・恐怖',
+                'secret': '秘密',
+                'relationship': '人間関係',
+                'habit': 'クセ・口癖',
+                'favorite': '好きなもの',
+                'dislike': '嫌いなもの',
+                'memory': '思い出',
+                'weakness': '弱点',
+                'strength': '強み',
+                'catchphrase': 'キャッチフレーズ'
+            };
+            return fieldLabels[field] || field || '前の項目';
+        }
+
+        // 過去の選択肢ボタンを無効化
+        function disablePreviousChoiceButtons() {
+            const choiceButtons = document.querySelectorAll('.choice-button:not(.disabled)');
+            choiceButtons.forEach(button => {
+                if (!button.disabled) {
+                    button.disabled = true;
+                    button.classList.add('disabled');
+                    button.removeAttribute('onclick');
+                    button.style.cursor = 'not-allowed';
+                }
+            });
         }
 
         // セッションリセット
@@ -1000,7 +1066,12 @@
             scrollToBottom();
         }
 
-        function addAIMessage(message, choices = null, emotion = 'normal', showEditButton = false) {
+        function addAIMessage(message, choices = null, emotion = 'normal', showEditButton = false, disableChoices = false) {
+            // 新しい選択肢が表示される際は、既存の選択肢を無効化
+            if (choices && choices.length > 0) {
+                disablePreviousChoiceButtons();
+            }
+            
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message ai with-avatar';
             
@@ -1031,15 +1102,22 @@
             if (choices && choices.length > 0) {
                 content += '<div class="choices-container">';
                 choices.forEach((choice, index) => {
-                    content += `<button class="choice-button" onclick="selectChoice('${escapeHtml(choice)}')">${escapeHtml(choice)}</button>`;
+                    if (disableChoices) {
+                        content += `<button class="choice-button disabled" disabled>${escapeHtml(choice)}</button>`;
+                    } else {
+                        content += `<button class="choice-button" onclick="selectChoice('${escapeHtml(choice)}')">${escapeHtml(choice)}</button>`;
+                    }
                 });
-                content += '<div class="choices-help-text">💬 上の選択肢から選ぶか、下のテキストボックスに自由に入力できます。</div>';
+                if (!disableChoices) {
+                    content += '<div class="choices-help-text">💬 上の選択肢から選ぶか、下のテキストボックスに自由に入力できます。</div>';
+                }
                 content += '</div>';
             }
             
             // 修正ボタンを表示（選択肢がない場合で、明示的に要求された場合）
             if (showEditButton && (!choices || choices.length === 0) && previousChoices.length > 0) {
-                content += '<div class="edit-previous-container" style="margin-top: 10px;"><button class="edit-previous-button" onclick="editPreviousChoice()">⚙️ 前の選択を修正</button></div>';
+                const fieldLabel = getFieldLabel(previousField);
+                content += `<div class="edit-previous-container" style="margin-top: 10px;"><button class="edit-previous-button" onclick="editPreviousChoice()">⚙️ ${fieldLabel}を修正</button></div>`;
             }
             
             messageContent.innerHTML = content;
